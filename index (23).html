@@ -1,0 +1,450 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Платформа для копирайтинга с ИИ-ассистентом</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #1a1a2e;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+
+    /* Main Content */
+    .main-content {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .main-content header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .main-content h1 {
+      font-size: 2.5rem;
+      color: #4a90e2;
+    }
+
+    .main-content p {
+      color: #a0a0a0;
+      font-size: 1.1rem;
+    }
+
+    .features, .monetization {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .feature-card, .pricing-card {
+      background: #2a2a40;
+      padding: 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover, .pricing-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .feature-card h2, .pricing-card h2 {
+      color: #4a90e2;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pricing-card button {
+      background: #4a90e2;
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: background 0.3s ease;
+    }
+
+    .pricing-card button:hover {
+      background: #357abd;
+    }
+
+    /* AI Assistant */
+    .ai-assistant {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 1000;
+    }
+
+    .ai-toggle {
+      width: 60px;
+      height: 60px;
+      background: #4a90e2;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease;
+    }
+
+    .ai-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    .ai-toggle img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .ai-chat {
+      width: 320px;
+      height: 450px;
+      background: #2a2a40;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+    }
+
+    .ai-chat.open {
+      display: flex;
+    }
+
+    .ai-header {
+      background: #1f1f33;
+      padding: 1rem;
+      border-radius: 10px 10px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ai-header h3 {
+      color: #4a90e2;
+      font-size: 1.2rem;
+    }
+
+    .ai-header button {
+      background: none;
+      border: none;
+      color: #a0a0a0;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .ai-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background: #2a2a40;
+    }
+
+    .message {
+      margin-bottom: 1rem;
+      max-width: 80%;
+      padding: 0.75rem;
+      border-radius: 8px;
+    }
+
+    .message.user {
+      background: #4a90e2;
+      color: #fff;
+      margin-left: auto;
+    }
+
+    .message.ai {
+      background: #3a3a50;
+      color: #e0e0e0;
+    }
+
+    .ai-input {
+      display: flex;
+      padding: 1rem;
+      border-top: 1px solid #3a3a50;
+    }
+
+    .ai-input textarea {
+      flex: 1;
+      background: #3a3a50;
+      border: none;
+      border-radius: 5px;
+      padding: 0.5rem;
+      color: #e0e0e0;
+      resize: none;
+      outline: none;
+    }
+
+    .ai-input button {
+      background: #4a90e2;
+      border: none;
+      border-radius: 5px;
+      padding: 0.5rem;
+      margin-left: 0.5rem;
+      cursor: pointer;
+    }
+
+    .ai-input button img {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+
+      .main-content h1 {
+        font-size: 2rem;
+      }
+
+      .ai-chat {
+        width: 90%;
+        height: 80vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Основной контент -->
+  <div class="main-content">
+    <header>
+      <h1>Копирайтинг Платформа</h1>
+      <p>Создавайте мощные тексты с помощью нашего ИИ-ассистента</p>
+    </header>
+    <section class="features">
+      <div class="feature-card">
+        <h2>Генерация идей</h2>
+        <p>Получайте креативные заголовки, слоганы или идеи для постов, адаптированные под вашу аудиторию.</p>
+      </div>
+      <div class="feature-card">
+        <h2>Редактирование</h2>
+        <p>Улучшайте черновики с проверкой грамматики, стиля и тона.</p>
+      </div>
+      <div class="feature-card">
+        <h2>SEO-оптимизация</h2>
+        <p>Повышайте видимость контента с помощью ключевых слов и мета-описаний.</p>
+      </div>
+      <div class="feature-card">
+        <h2>Рекламные тексты</h2>
+        <p>Создавайте убедительные тексты для соцсетей, Google Ads или email-кампаний.</p>
+      </div>
+    </section>
+    <section class="monetization">
+      <div class="pricing-card">
+        <h2>Бесплатный план</h2>
+        <p>5 запросов к ИИ в день бесплатно.</p>
+        <button onclick="alert('Бесплатный план активен!')">Начать</button>
+      </div>
+      <div class="pricing-card">
+        <h2>Премиум-план</h2>
+        <p>Неограниченные запросы, расширенные функции и приоритетная поддержка за 990 ₽/мес.</p>
+        <button onclick="redirectToPayment()">Купить подписку</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ИИ-ассистент -->
+  <div class="ai-assistant">
+    <div class="ai-toggle" onclick="toggleChat()">
+      <img src="https://img.icons8.com/ios-filled/50/ffffff/artificial-intelligence.png" alt="ИИ Иконка">
+    </div>
+    <div class="ai-chat" id="aiChat">
+      <div class="ai-header">
+        <h3>ИИ-ассистент копирайтинга</h3>
+        <button onclick="toggleChat()">↓</button>
+      </div>
+      <div class="ai-messages" id="aiMessages">
+        <div class="message ai">
+          Привет! Я твой ИИ-ассистент по копирайтингу. Могу помочь с заголовками, постами или рекламой. Что нужно?
+        </div>
+      </div>
+      <div class="ai-input">
+        <textarea id="aiInput" placeholder="Попросите заголовок, рекламу или идею для поста..." rows="2"></textarea>
+        <button onclick="sendMessage()">
+          <img src="https://img.icons8.com/ios-filled/50/ffffff/paper-plane.png" alt="Отправить">
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Инициализация счетчика запросов в localStorage
+    let requestCount = parseInt(localStorage.getItem('requestCount')) || 0;
+    const maxFreeRequests = 5;
+
+    // Обновление счетчика на странице
+    function updateRequestCount() {
+      localStorage.setItem('requestCount', requestCount);
+    }
+
+    // Проверка лимита запросов
+    function checkRequestLimit() {
+      if (requestCount >= maxFreeRequests) {
+        const aiMessages = document.getElementById('aiMessages');
+        const limitMessage = document.createElement('div');
+        limitMessage.className = 'message ai';
+        limitMessage.textContent = 'Вы исчерпали 5 бесплатных запросов. Подпишитесь на премиум-план за 990 ₽/мес!';
+        aiMessages.appendChild(limitMessage);
+        aiMessages.scrollTop = aiMessages.scrollHeight;
+        return false;
+      }
+      return true;
+    }
+
+    // Сброс счетчика (для демо, можно настроить сброс по времени, например, раз в день)
+    function resetRequestCount() {
+      requestCount = 0;
+      updateRequestCount();
+    }
+
+    // Переключение видимости чата
+    function toggleChat() {
+      const chat = document.getElementById('aiChat');
+      chat.classList.toggle('open');
+    }
+
+    // Отправка сообщения и обработка ответа
+    async function sendMessage() {
+      const input = document.getElementById('aiInput');
+      const messages = document.getElementById('aiMessages');
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      // Проверка лимита запросов
+      if (!checkRequestLimit()) return;
+
+      // Добавление сообщения пользователя
+      const userMessage = document.createElement('div');
+      userMessage.className = 'message user';
+      userMessage.textContent = text;
+      messages.appendChild(userMessage);
+
+      // Очистка поля ввода
+      input.value = '';
+
+      // Увеличение счетчика запросов
+      requestCount++;
+      updateRequestCount();
+
+      // Симуляция ответа ИИ (замените на вызов API n8n)
+      try {
+        let aiResponse = 'Вот предложение: ';
+        if (text.toLowerCase().includes('заголовок')) {
+          aiResponse += '«5 проверенных стратегий для роста вашего бренда»';
+        } else if (text.toLowerCase().includes('реклама')) {
+          aiResponse += '«Раскройте свой потенциал сегодня – присоединяйтесь и сэкономьте 20%!»';
+        } else if (text.toLowerCase().includes('пост')) {
+          aiResponse += 'Как насчет поста на тему «10 советов для вовлекающего контента в 2025 году»?';
+        } else {
+          aiResponse += 'Уточните, пожалуйста. Например, нужен заголовок или реклама?';
+        }
+
+        // Пример вызова API через n8n
+        /*
+        const response = await fetch('https://your-n8n-instance.com/webhook/copywriting-assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: text, context: 'copywriting' }),
+        });
+        const data = await response.json();
+        aiResponse = data.reply || 'Ошибка при обработке запроса';
+        */
+        // Настройка n8n:
+        // 1. Создайте workflow в n8n с HTTP Request нодой для получения POST-запросов.
+        // 2. Добавьте ноду для обработки текста (например, OpenAI или кастомный скрипт).
+        // 3. Верните ответ в формате JSON: { "reply": "Текст ответа" }.
+        // 4. Разверните n8n на сервере и используйте URL вебхука выше.
+
+        // Добавление ответа ИИ
+        const aiMessage = document.createElement('div');
+        aiMessage.className = 'message ai';
+        aiMessage.textContent = aiResponse;
+        messages.appendChild(aiMessage);
+
+        // Прокрутка вниз
+        messages.scrollTop = messages.scrollHeight;
+      } catch (error) {
+        console.error('Ошибка при вызове API:', error);
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'message ai';
+        errorMessage.textContent = 'Произошла ошибка. Попробуйте снова!';
+        messages.appendChild(errorMessage);
+        messages.scrollTop = messages.scrollHeight;
+      }
+    }
+
+    // Обработка нажатия Enter
+    document.getElementById('aiInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Перенаправление на оплату (демо)
+    function redirectToPayment() {
+      // Интеграция с платежным шлюзом (например, Stripe, ЮKassa)
+      alert('Перенаправление на страницу оплаты...');
+      // window.location.href = 'https://payment-gateway.example.com';
+    }
+
+    // Сброс счетчика для тестирования (удалите в продакшене или настройте по таймеру)
+    // resetRequestCount();
+  </script>
+</body>
+</html>
